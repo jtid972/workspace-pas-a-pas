@@ -1,0 +1,54 @@
+name: CI de base
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Détecter un projet Python
+        id: detect
+        run: |
+          if [ -f requirements.txt ] || [ -f pyproject.toml ]; then
+            echo "python=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "python=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Installer Python
+        if: steps.detect.outputs.python == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer les dépendances
+        if: steps.detect.outputs.python == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          [ -f requirements.txt ] && pip install -r requirements.txt || true
+          [ -f requirements-dev.txt ] && pip install -r requirements-dev.txt || true
+
+      - name: Lint (ruff)
+        if: steps.detect.outputs.python == 'true'
+        run: |
+          pip install ruff
+          ruff check . || true
+
+      - name: Tests (pytest)
+        if: steps.detect.outputs.python == 'true'
+        run: |
+          pip install pytest
+          if [ -d tests ]; then pytest -q; else echo "Aucun test pour le moment."; fi
+
+      - name: Dépôt sans code applicatif
+        if: steps.detect.outputs.python != 'true'
+        run: echo "Aucun projet Python détecté encore : rien à tester (dépôt en préparation)."
